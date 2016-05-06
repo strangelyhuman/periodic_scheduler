@@ -34,22 +34,24 @@ enum DISP_FLAGS {
 /* User Functions */
 static void oneHzFunc( void* p ) {
 
-	printk( "One Hertz Task\n" );
-	msleep(2000);
+	printk( "1 Hz\n" );
+	//mdelay(1000);
 	return;
 
 }
 
 static void tenHzFunc( void* p ) {
 
-	printk( "Ten Hertz Task\n" );
+	printk( "10Hz\n" );
+	//mdelay(1000);
 	return;
 	
 }
 
 static void hunHzFunc( void* p ) {
 
-	printk( "Hundred Hertz Task\n" );
+	printk( "100Hz\n" );
+	mdelay(1000);
 	return;
 	
 }
@@ -67,14 +69,14 @@ enum hrtimer_restart timer1HzCallback( struct hrtimer* sample ) {
 
 	ktime_t k1Hz;
 
-	if(dispatchFlag & (1 << ONE_HZ_FLAG) && !(dispatchFlag & (1 << OVERRUN_FLAG))) {
+	if((dispatchFlag & (1 << ONE_HZ_FLAG)) && !(dispatchFlag & (1 << OVERRUN_FLAG))) {
 
 		dispatchFlag &= ~(1 << ONE_HZ_FLAG);
 
 		up( &oneHzSemph );
 		/* Check if my 1Hz Task is complete. If it is complete, handover the semaphore and restart timer*/
 		//printk( "1 Hz Timer Callback initiated\n");
-		k1Hz  = ktime_set( 0, MS_TO_NS(1000) ); 	//1000ms -> 1hz
+		k1Hz  = ktime_set( 0, MS_TO_NS(997) ); 	//1000ms -> 1hz
 		hrtimer_forward_now(sample, k1Hz);
 		return HRTIMER_RESTART;
 		}
@@ -93,14 +95,14 @@ enum hrtimer_restart timer10HzCallback( struct hrtimer* sample ) {
 
 	ktime_t k10Hz;
 
-	if(dispatchFlag & (1 << TEN_HZ_FLAG) && !(dispatchFlag & (1 << OVERRUN_FLAG))) {
+	if((dispatchFlag & (1 << TEN_HZ_FLAG)) && !(dispatchFlag & (1 << OVERRUN_FLAG))) {
 
 		dispatchFlag &= ~(1 << TEN_HZ_FLAG);
 
 		up( &tenHzSemph );
 		/* Check if my 1Hz Task is complete. If it is complete, handover the semaphore */
 		//printk( "10 Hz Timer Callback initiated\n");
-		k10Hz = ktime_set( 0, MS_TO_NS(100) ); 	//100ms -> 10hz
+		k10Hz = ktime_set( 0, MS_TO_NS(97) ); 	//100ms -> 10hz
 		hrtimer_forward_now(sample, k10Hz);
 		return HRTIMER_RESTART;
 	}
@@ -118,7 +120,7 @@ enum hrtimer_restart timer100HzCallback( struct hrtimer* sample ) {
 
 	ktime_t k100Hz;
 
-	if(dispatchFlag & (1 << HUN_HZ_FLAG) && !(dispatchFlag & (1 << OVERRUN_FLAG))) {
+	if((dispatchFlag & (1 << HUN_HZ_FLAG)) && !(dispatchFlag & (1 << OVERRUN_FLAG))) {
 
 		dispatchFlag &= ~(1 << HUN_HZ_FLAG);
 
@@ -126,7 +128,7 @@ enum hrtimer_restart timer100HzCallback( struct hrtimer* sample ) {
 
 		/* Check if my 1Hz Task is complete. If it is complete, handover the semaphore */
 		//printk( "100 Hz Timer Callback initiated\n");
-		k100Hz = ktime_set( 0, MS_TO_NS(10) ); 	//10ms -> 100hz
+		k100Hz = ktime_set( 0, MS_TO_NS(23) ); 	//10ms -> 100hz
 		hrtimer_forward_now(sample, k100Hz);
 		return HRTIMER_RESTART;
 	}
@@ -158,7 +160,9 @@ int oneHzDispatch(void* data) {
 			return retval;
 		
 		oneHzFunc( NULL );
-		dispatchFlag |= (1 << ONE_HZ_FLAG);
+
+		if( !(dispatchFlag & (1 << OVERRUN_FLAG)))
+			dispatchFlag |= (1 << ONE_HZ_FLAG);
 	}
 
 }
@@ -177,7 +181,9 @@ int tenHzDispatch(void* data) {
 			return retval;
 
 		tenHzFunc( NULL );
-		dispatchFlag |= (1 << TEN_HZ_FLAG);
+
+		if( !(dispatchFlag & (1 << OVERRUN_FLAG)))
+			dispatchFlag |= (1 << TEN_HZ_FLAG);
 	}
 	
 }
@@ -196,7 +202,9 @@ int hunHzDispatch(void* data) {
 		return retval;
 
 	hunHzFunc( NULL );
-	dispatchFlag |= (1 << HUN_HZ_FLAG);
+
+	if( !(dispatchFlag & (1 << OVERRUN_FLAG)))
+		dispatchFlag |= (1 << HUN_HZ_FLAG);
 	}
 
 }
@@ -207,6 +215,7 @@ int exitSched(void *data){
 	sched_setscheduler(current, SCHED_FIFO, &param);
 
 	down_killable( &exitSemph );
+	
 
 	printk( KERN_ERR "Task overrun!!\n");
 
@@ -223,6 +232,9 @@ int exitSched(void *data){
 	kthread_stop( task1Hz );
 	kthread_stop( task10Hz ); 
 	kthread_stop( task100Hz ); 
+
+	
+
 	return 0;
 
 }
@@ -274,9 +286,9 @@ static int __init p_scheduler_init( void ) {
 	task10Hz = kthread_run( tenHzDispatch, NULL, "Thread10Hz");
 	task1Hz = kthread_run( oneHzDispatch, NULL, "Thread1Hz");
 
-	k1Hz   	= ktime_set( 0, MS_TO_NS(1000) ); 	//1000ms -> 1hz
-	k10Hz  	= ktime_set( 0, MS_TO_NS(100) ); 	//100ms -> 10hz
-	k100Hz 	= ktime_set( 0, MS_TO_NS(10) ); 	//10ms -> 100hz
+	k1Hz   	= ktime_set( 0, MS_TO_NS(997) ); 	//1000ms -> 1hz
+	k10Hz  	= ktime_set( 0, MS_TO_NS(97) ); 	//100ms -> 10hz
+	k100Hz 	= ktime_set( 0, MS_TO_NS(23) ); 	//10ms -> 100hz
 
 	hrtimer_init( &timer100Hz, CLOCK_MONOTONIC, HRTIMER_MODE_REL );
 	hrtimer_init( &timer10Hz, CLOCK_MONOTONIC, HRTIMER_MODE_REL );
